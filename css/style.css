@@ -2708,6 +2708,20 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .yt-title, .yt-author, .yt-desc, .yt-copy small { overflow-wrap: anywhere; text-align: left; }
 .yt-thumb { max-width: 100%; }
 #dlgBody iframe, #dlgBody video { max-width: 100%; }
+/* A focused, theatre-sized player for catalog videos. */
+dialog.video-player-dialog { width: min(1200px, calc(100% - 36px)); max-height: 94dvh; }
+dialog.video-player-dialog .dlg-head { padding: 16px 20px; }
+dialog.video-player-dialog .dlg-head .sub:empty { display: none; }
+dialog.video-player-dialog .dlg-body { padding: 0 0 20px; gap: 14px; }
+.aevy-player-shell { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #000; }
+.aevy-player-media { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border: 0; background: #000; object-fit: contain; }
+.aevy-player-description { padding: 0 20px; }
+@media (max-width: 760px) {
+  dialog.video-player-dialog { width: 100%; max-width: 100%; height: auto; max-height: 100dvh; border-radius: 0; border: 0; }
+  dialog.video-player-dialog .dlg-head { padding: 14px; }
+  dialog.video-player-dialog .dlg-body { padding-bottom: 14px; }
+  .aevy-player-description { padding: 0 14px; }
+}
 @media (max-width: 900px) {
   .home-social, .home-social.guest { padding-inline: 14px; }
   .feed-list, .cards { margin-inline: 0; }
