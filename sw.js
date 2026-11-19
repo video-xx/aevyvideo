@@ -1,6 +1,6 @@
 /* Aevy service worker: caches the app files so it opens fast and works as an installed app.
    Supabase API calls, realtime and other sites are never touched. Bump VERSION to force an update. */
-var VERSION = 'aevy-v32';
+var VERSION = 'aevy-v33';
 self.addEventListener('install', function (e) { self.skipWaiting(); });
 self.addEventListener('activate', function (e) {
   e.waitUntil(caches.keys().then(function (ks) {

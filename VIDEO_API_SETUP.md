@@ -1,51 +1,33 @@
-# Add a video API (3 steps)
+# Aevy video setup
 
-The browser never sees your API key. A small Cloudflare Worker (in `worker/`) talks to the video API.
-Videos, **Show more** paging, search and **categories** all come from the API automatically.
+The site keeps its existing Aevy design. Members can upload videos to Cloudflare Stream or share a supported external video link. The Worker creates a one-time Stream upload URL; the browser uploads directly to Stream; the published playback URL is saved in the member's normal Supabase post. Stream and Supabase keys stay on the Worker.
 
-## 1. Pick the API (edit `worker/wrangler.jsonc`, section `vars`)
+## Enable Cloudflare Stream uploads
 
-**Known provider** - set one word (`eporner`, `pexels` or `pixabay`):
+1. Enable Cloudflare Stream for your account and create a Cloudflare API token with **Stream: Edit** permission. Stream storage and delivery are billed according to your account plan.
+2. Copy your Cloudflare Account ID from the dashboard. From the Supabase project configured in `js/config.js`, copy the project URL and publishable key.
+3. In PowerShell, from the `worker` folder, run these commands. Wrangler prompts for each value:
 
-    "API_PRESET": "pexels"      (or "pixabay")
+```powershell
+npx.cmd wrangler secret put CLOUDFLARE_ACCOUNT_ID
+npx.cmd wrangler secret put STREAM_API_TOKEN
+npx.cmd wrangler secret put SUPABASE_URL
+npx.cmd wrangler secret put SUPABASE_ANON_KEY
+npm.cmd run deploy
+```
 
-**Any other API** - leave `API_PRESET` empty and fill two lines:
+Enter the Cloudflare Account ID, Stream API token, Supabase URL, and Supabase publishable key respectively. The Worker verifies the signed-in Supabase session before it returns a one-time Stream upload URL. Check `<worker-url>/api/health`; `streamConfigured` should be `true`.
 
-    "API_BASE_URL": "https://api.example.com/v1",
-    "API_LIST_PATH": "videos"
+The Share video page uploads files directly to Stream and supports files under 200 MB. Cloudflare requires resumable TUS uploads for larger files; this form currently reports that limit. A video uploaded to Stream is then published to the site's feed through the existing Supabase video post.
 
-The Worker finds the video list in the response and maps title, thumbnail, video link, channel, views,
-duration and categories/tags by itself. Only if it picks something wrong, use the optional vars:
-`API_ITEMS_PATH` (where the list is, e.g. `data.items`), `API_SEARCH_PATH`, `API_CATEGORIES_PATH`,
-`API_AUTH_MODE` (`header` / `query` / `none`), `API_AUTH_NAME` (header or query-parameter name for the key),
-`API_FIELDS` (JSON, e.g. `{"title":"snippet.title"}`).
+## Optional external video catalog API
 
-Categories: taken from the API's categories endpoint if you set `API_CATEGORIES_PATH`, from the preset's topic
-list, and from the categories/tags on the videos themselves. They appear as filter buttons on its own.
+Cloudflare Stream hosts member uploads; it does not provide a public catalog of unrelated videos. To use another catalog API, configure `API_BASE_URL`, `API_LIST_PATH`, and any needed `API_*` mappings in `worker/wrangler.jsonc`. Store a provider key with `npx.cmd wrangler secret put VIDEO_API_KEY`, then redeploy. Never put API keys in GitHub or `js/config.js`.
 
-## 2. Deploy
-
-    cd worker
-    npm install
-    npx wrangler login
-    npx wrangler secret put VIDEO_API_KEY        # your API key (skip if the API needs none)
-    npm run deploy
-
-It prints a URL like `https://aevy-video-api.<account>.workers.dev`.
-
-## 3. Point the site at it
-
-In `js/config.js` set `videoApiBase` to that URL (no trailing slash). Done.
-
-Check `<worker-url>/api/health` - it should show `providerConfigured: true` and `apiKeySet: true`.
-
-## Optional: Supabase cache
-Run `supabase/schema.sql` (it includes the video catalog), then add the secrets
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` with `npx wrangler secret put ...`.
-The Worker then saves every video and category it sees and serves them if the provider is down.
-Without these secrets everything still works live. `ADMIN_SYNC_TOKEN` (secret) enables `POST /api/sync`.
+Presets available in the Worker include `pexels` and `pixabay`; `eporner` is an adult-video API. Leave `API_PRESET` empty for Stream-only uploads and member-shared links. Without a catalog API, search, categories, and pagination use public member posts already loaded by the site.
 
 ## Notes
-- There is no demo content: until an API is connected the feed shows only videos shared by members.
-- Provider quotas, Cloudflare limits and Supabase limits still apply. Only metadata and links are stored.
-- Production: set `ALLOWED_ORIGIN` in `wrangler.jsonc` to your site's address instead of `*`.
+
+- Provider quotas, Stream billing, and Supabase limits apply; video storage is not unlimited.
+- The Worker endpoint requires the user to be signed in. Guests must create or sign into an account before uploading.
+- Keep `worker/node_modules/` and `worker/.wrangler/` out of GitHub. `.gitignore` excludes them.

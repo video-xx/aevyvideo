@@ -10,7 +10,7 @@
      Option B - any other API: leave API_PRESET empty and fill API_BASE_URL + API_LIST_PATH.
      Everything else is detected automatically. Empty values are ignored. */
   "vars": {
-    "API_PRESET": "eporner",
+    "API_PRESET": "",
     "API_BASE_URL": "",
     "API_LIST_PATH": "",
     "API_SEARCH_PATH": "",
@@ -19,6 +19,6 @@
     "API_AUTH_NAME": "",
     "API_ITEMS_PATH": "",
     "API_FIELDS": "",
-    "ALLOWED_ORIGIN": "*"
+    "ALLOWED_ORIGIN": "https://aevyvideo.pages.dev"
   }
 }

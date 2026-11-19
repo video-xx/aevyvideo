@@ -179,6 +179,42 @@ async function upstream(cfg, env, path, params) {
   if (!res.ok) throw new Error("Video provider returned HTTP " + res.status);
   return res.json();
 }
+
+/* Create a short-lived, one-use Stream upload URL after validating the signed-in Supabase user. */
+async function createStreamUpload(request, env) {
+  const fail = (status, message) => Object.assign(new Error(message), { status });
+  if (!env.CLOUDFLARE_ACCOUNT_ID || !env.STREAM_API_TOKEN) throw fail(503, "Cloudflare Stream secrets are not configured");
+  if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) throw fail(503, "Supabase auth secrets are not configured on the Worker");
+  const auth = request.headers.get("Authorization") || "";
+  if (!/^Bearer\s+\S+/i.test(auth)) throw fail(401, "Sign in before uploading");
+  const userRes = await fetch(env.SUPABASE_URL.replace(/\/+$/, "") + "/auth/v1/user", {
+    headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: auth }
+  });
+  if (!userRes.ok) throw fail(401, "Your sign-in session expired. Sign in again");
+  const user = await userRes.json();
+  if (!user || !user.id) throw fail(401, "Sign in before uploading");
+  let body;
+  try { body = await request.json(); } catch { throw fail(400, "Invalid upload request"); }
+  const size = Number(body.size);
+  const mime = String(body.type || "").toLowerCase();
+  const name = String(body.name || "video").slice(0, 180);
+  if (!Number.isFinite(size) || size <= 0 || size >= 200 * 1000 * 1000) throw fail(413, "This upload form supports videos under 200 MB. Larger videos need resumable TUS upload");
+  if (!mime.startsWith("video/") && !/\.(mp4|mov|mkv|webm|avi|m4v|ogv|3gp)$/i.test(name)) throw fail(415, "Choose a video file");
+  const origin = request.headers.get("Origin") || "";
+  let allowedOrigins;
+  try { const u = new URL(origin); if (u.protocol === "https:" || u.hostname === "localhost" || u.hostname === "127.0.0.1") allowedOrigins = [u.origin]; } catch {}
+  const streamRes = await fetch("https://api.cloudflare.com/client/v4/accounts/" + encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID) + "/stream/direct_upload", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + env.STREAM_API_TOKEN, "Content-Type": "application/json" },
+    body: JSON.stringify({ maxDurationSeconds: 3600, allowedOrigins, meta: { uploadedBy: user.id, fileName: name } })
+  });
+  const result = await streamRes.json().catch(() => ({}));
+  if (!streamRes.ok || !result.success || !result.result || !result.result.uploadURL || !result.result.uid) {
+    console.error("Cloudflare Stream direct upload URL failed:", streamRes.status, JSON.stringify(result.errors || []));
+    throw fail(502, "Could not create a Stream upload link. Check the Stream API token and account settings");
+  }
+  return { uploadURL: result.result.uploadURL, uid: result.result.uid, videoURL: "https://iframe.videodelivery.net/" + result.result.uid };
+}
 function topicList(cfg) { return (cfg.topics || []).map(name => ({ slug: slugify(name), name })); }
 async function knownCategory(cfg, env, slug) {
   const t = topicList(cfg).find(c => c.slug === slug);
@@ -266,7 +302,10 @@ export default {
     try {
       if (url.pathname === "/api/health") {
         const cfg = getConfig(env);
-        return json(env, { ok: true, providerConfigured: cfg.configured, provider: cfg.provider, apiKeySet: !!env.VIDEO_API_KEY, cacheConfigured: dbReady(env), secretsConfigured: dbReady(env) });
+        return json(env, { ok: true, providerConfigured: cfg.configured, provider: cfg.provider, apiKeySet: !!env.VIDEO_API_KEY, streamConfigured: !!(env.CLOUDFLARE_ACCOUNT_ID && env.STREAM_API_TOKEN && env.SUPABASE_URL && env.SUPABASE_ANON_KEY), cacheConfigured: dbReady(env), secretsConfigured: dbReady(env) });
+      }
+      if (url.pathname === "/api/stream/direct-upload" && request.method === "POST") {
+        return json(env, await createStreamUpload(request, env));
       }
       if (url.pathname === "/api/videos" && request.method === "GET") {
         const cfg = getConfig(env);
@@ -284,7 +323,7 @@ export default {
       return json(env, { error: "Not found" }, 404);
     } catch (e) {
       console.error("Aevy video API error:", e.message);
-      return json(env, { error: e.message }, /Unknown API_PRESET|not valid JSON/.test(e.message) ? 503 : 502);
+      return json(env, { error: e.message }, e.status || (/Unknown API_PRESET|not valid JSON/.test(e.message) ? 503 : 502));
     }
   }
 };

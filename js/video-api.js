@@ -20,6 +20,7 @@
     }
     if(id&&/^[\w-]{6,}$/.test(id))return {thumb:'https://i.ytimg.com/vi/'+id+'/hqdefault.jpg',embed:'https://www.youtube-nocookie.com/embed/'+id+'?rel=0&modestbranding=1&playsinline=1',watch:'https://www.youtube.com/watch?v='+id,provider:'YouTube'};
     if(h==='vimeo.com'||h==='player.vimeo.com'){m=url.pathname.match(/(\d{5,})/);if(m)return {thumb:'',embed:'https://player.vimeo.com/video/'+m[1],watch:'https://vimeo.com/'+m[1],provider:'Vimeo'}}
+    if(h==='iframe.videodelivery.net'||h==='videodelivery.net'||/\.cloudflarestream\.com$/.test(h)){m=url.pathname.match(/^\/([\w-]{20,})(?:\/iframe)?\/?$/);if(m){var sid=m[1];return {thumb:'https://videodelivery.net/'+sid+'/thumbnails/thumbnail.jpg',embed:'https://iframe.videodelivery.net/'+sid,watch:'https://iframe.videodelivery.net/'+sid,provider:'Cloudflare Stream'}}}
     if(/\.(mp4|webm|ogv|m4v)$/i.test(url.pathname))return {thumb:'',embed:url.href,watch:url.href,provider:'MP4'};
     return null;
   }
@@ -63,6 +64,13 @@
     return fetch(base+'/api/'+path,{headers:{Accept:'application/json'},credentials:'omit'})
       .then(function(r){return r.json().catch(function(){return {}}).then(function(x){if(!r.ok)throw new Error(x.error||('Video API HTTP '+r.status));return x})});
   }
+  function createStreamUpload(file,accessToken){
+    return fetch((base||'')+'/api/stream/direct-upload',{method:'POST',headers:{Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+accessToken},credentials:'omit',body:JSON.stringify({name:file.name,size:file.size,type:file.type})})
+      .then(function(r){return r.json().catch(function(){return {}}).then(function(x){if(!r.ok)throw new Error(x.error||('Upload setup HTTP '+r.status));return x})});
+  }
+  function uploadStreamFile(file,url,onProgress){
+    return new Promise(function(resolve,reject){var xhr=new XMLHttpRequest(),form=new FormData();form.append('file',file,file.name);xhr.open('POST',url);xhr.upload.onprogress=function(e){if(e.lengthComputable&&onProgress)onProgress(Math.round(e.loaded/e.total*100))};xhr.onload=function(){if(xhr.status>=200&&xhr.status<300){resolve(xhr.responseText);return}reject(new Error('Stream upload failed (HTTP '+xhr.status+')'))};xhr.onerror=function(){reject(new Error('Network error during video upload'))};xhr.onabort=function(){reject(new Error('Video upload cancelled'))};xhr.send(form)});
+  }
   function withFallback(path,local){
     if(!base)return Promise.resolve(local());
     return get(path).then(function(r){
@@ -82,6 +90,8 @@
     },
     categories:function(){return withFallback('categories',localCategories)},
     configured:function(){return !!base},
-    health:function(){return base?get('health').catch(function(){return {ok:false,local:true}}):Promise.resolve({ok:true,local:true})}
+    health:function(){return base?get('health').catch(function(){return {ok:false,local:true}}):Promise.resolve({ok:true,local:true})},
+    createStreamUpload:createStreamUpload,
+    uploadStreamFile:uploadStreamFile
   };
 })();

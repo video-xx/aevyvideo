@@ -129,7 +129,7 @@
   <div class="page-head"><div class="wrap">
     <p class="eyebrow">Creator studio</p>
     <h1>Share a video.</h1>
-    <p>Publish a YouTube, Vimeo, or direct video link to your channel.</p>
+    <p>Upload a video to Cloudflare Stream or share a YouTube, Vimeo, or direct video link.</p>
   </div></div>
   <div class="wrap pub">
     <form class="form" id="pubForm" autocomplete="off">
@@ -151,8 +151,9 @@
       </div>
       <div class="row2">
         <div><label class="l" for="fTags">Tags</label><input class="field" id="fTags" placeholder="utility, files, cli"></div>
-        <div><label class="l" for="fVideo">Video URL</label><input class="field" id="fVideo" inputmode="url" placeholder="YouTube, Vimeo, or direct video URL" required></div>
+        <div><label class="l" for="streamVideoFile">Upload video (under 200 MB)</label><input class="field" id="streamVideoFile" type="file" accept="video/*"><small class="note" id="streamUploadStatus" aria-live="polite">Uploads securely to Cloudflare Stream.</small></div>
       </div>
+      <div><label class="l" for="fVideo">Or paste a video URL</label><input class="field" id="fVideo" inputmode="url" placeholder="YouTube, Vimeo, or direct video URL"></div>
       <div>
         <label class="l" for="fCode">Code</label>
         <textarea class="field" id="fCode" spellcheck="false" placeholder="Video link metadata"></textarea>
@@ -233,15 +234,15 @@
 <script src="js/auth.js?v=s12" defer></script>
 <script src="js/badges.js?v=s11" defer></script>
 <script src="js/db.js?v=s9" defer></script>
-<script src="js/app.js?v=video-7" defer></script>
+<script src="js/app.js?v=stream-1" defer></script>
 <script src="js/trust.js?v=s1" defer></script>
 <script src="js/report.js?v=s1" defer></script>
 <script src="js/eco.js?v=s10" defer></script>
 <script src="js/stats.js?v=s11" defer></script>
 <script src="js/e2e.js?v=s1" defer></script>
 <script src="js/social.js?v=s17" defer></script>
-<script src="js/video-api.js?v=api-2" defer></script>
-<script src="js/home.js?v=api-1" defer></script>
+<script src="js/video-api.js?v=stream-1" defer></script>
+<script src="js/home.js?v=api-2" defer></script>
 <script src="js/profile.js?v=s19b" defer></script>
 <script src="js/suggest.js?v=s3" defer></script>
 <script src="js/saved.js?v=s1" defer></script>

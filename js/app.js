@@ -559,6 +559,10 @@ function parseVideo(u){
     var vm=url.pathname.match(/(\d{5,})/);
     if(vm)return {type:'vimeo',embed:'https://player.vimeo.com/video/'+vm[1],watch:'https://vimeo.com/'+vm[1],label:'Vimeo'};
   }
+  if(h==='iframe.videodelivery.net'||h==='videodelivery.net'||/\.cloudflarestream\.com$/.test(h)){
+    var sm=url.pathname.match(/\/([\w-]{20,})(?:\/iframe)?\/?$/);
+    if(sm){var sid=sm[1];return {type:'stream',id:sid,thumb:'https://videodelivery.net/'+sid+'/thumbnails/thumbnail.jpg',embed:'https://iframe.videodelivery.net/'+sid,watch:'https://iframe.videodelivery.net/'+sid,label:'Cloudflare Stream'};}
+  }
   if(/\.(mp4|webm|ogv|mov|m4v)$/i.test(url.pathname))return {type:'file',src:url.href,watch:url.href,label:'Video file'};
   return null;
 }
@@ -609,7 +613,7 @@ $('#vlist').addEventListener('click',function(e){
 
 /* ---------- Publish ---------- */
 $('#fLang').innerHTML=langOptions('javascript');
-var pubExt='';
+var pubExt='',uploadedStream=null;
 function pubFileName(){return slug($('#fTitle').value.trim()||'untitled')+'.'+(pubExt||langExt($('#fLang').value))}
 function updatePreview(){
   var lang=$('#fLang').value,code=$('#fCode').value;
@@ -643,22 +647,34 @@ $('#pubFile').addEventListener('change',function(){loadFile(this.files[0]);this.
 ['dragenter','dragover'].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add('over')})});
 ['dragleave','drop'].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove('over')})});
 drop.addEventListener('drop',function(e){loadFile(e.dataTransfer.files[0])});
-$('#pubClear').addEventListener('click',function(){$('#pubForm').reset();pubExt='';updatePreview()});
+$('#streamVideoFile').addEventListener('change',function(){uploadedStream=null;if(this.files[0]){$('#fVideo').value='';$('#streamUploadStatus').textContent='Ready to upload '+this.files[0].name+' ('+fmtSize(this.files[0].size)+').'}else $('#streamUploadStatus').textContent='Uploads securely to Cloudflare Stream.'});
+$('#fVideo').addEventListener('input',function(){if(this.value.trim()){uploadedStream=null;$('#streamVideoFile').value='';$('#streamUploadStatus').textContent='Using the video link you entered.'}});
+$('#pubClear').addEventListener('click',function(){$('#pubForm').reset();pubExt='';uploadedStream=null;$('#streamUploadStatus').textContent='Uploads securely to Cloudflare Stream.';updatePreview()});
 $('#pubForm').addEventListener('submit',function(e){
   e.preventDefault();
-  var title=$('#fTitle').value.trim(),code='AEVY VIDEO LINK\n'+$('#fVideo').value.trim();
+  var title=$('#fTitle').value.trim(),code='',m=me(),file=$('#streamVideoFile').files[0],btn=$('#pubForm [type=submit]'),status=$('#streamUploadStatus'),vid=$('#fVideo').value.trim();
   if(!title){toast('Add a video title');return}
-  var vid=$('#fVideo').value.trim();
-  if(!vid||!parseVideo(vid)){toast('Add a supported YouTube, Vimeo, or direct video URL');return}
-  var m=me();if(!m){toast('Sign in to publish');location.hash='#/auth';return}
-  $('#fLang').value='text';$('#fCode').value=code;
-  var btn=$('#pubForm [type=submit]');btn.disabled=true;btn.textContent='Publishing...';
-  DB.createScript({cat:'Other',vis:'public',title:title,lang:'text',author:m.name,desc:$('#fDesc').value.trim(),tags:splitTags($('#fTags').value),video:vid,ext:'txt'},code).then(function(s){
-    upsertLocal(s);btn.disabled=false;btn.textContent='Publish video';
-    $('#pubForm').reset();pubExt='';updatePreview();
-    toast('Video published');
-    location.hash='#/';
-  },function(e){btn.disabled=false;btn.textContent='Publish video';fail(e)});
+  if(!m){toast('Sign in to publish');location.hash='#/auth';return}
+  function publish(videoUrl){
+    if(!videoUrl||!parseVideo(videoUrl))throw new Error('Add a supported YouTube, Vimeo, Cloudflare Stream, or direct video URL');
+    code='AEVY VIDEO LINK\n'+videoUrl;$('#fLang').value='text';$('#fCode').value=code;btn.textContent='Publishing…';
+    return DB.createScript({cat:'Other',vis:'public',title:title,lang:'text',author:m.name,desc:$('#fDesc').value.trim(),tags:splitTags($('#fTags').value),video:videoUrl,ext:'txt'},code).then(function(s){
+      upsertLocal(s);uploadedStream=null;btn.disabled=false;btn.textContent='Publish video';$('#pubForm').reset();pubExt='';if(status)status.textContent='Uploads securely to Cloudflare Stream.';updatePreview();toast('Video published');location.hash='#/';
+    });
+  }
+  if(!file){
+    if(!vid||!parseVideo(vid)){toast('Add a supported video URL or choose a video file');return}
+    btn.disabled=true;publish(vid).catch(function(err){btn.disabled=false;btn.textContent='Publish video';fail(err)});
+    return;
+  }
+  if(file.size>=200*1000*1000){toast('Choose a video under 200 MB. Larger files need resumable uploads.');return}
+  if(uploadedStream&&uploadedStream.file===file){try{btn.disabled=true;publish(uploadedStream.videoURL).catch(function(err){btn.disabled=false;btn.textContent='Publish video';fail(err)})}catch(err){toast(err.message)}return}
+  if(!window.AevySB||!window.AevySB.client||!window.AevyVideoAPI){toast('Upload service is not ready. Reload the page and try again.');return}
+  btn.disabled=true;btn.textContent='Preparing upload…';if(status)status.textContent='Getting a secure one-time upload link…';
+  window.AevySB.client.auth.getSession().then(function(r){if(r.error)throw r.error;var token=r.data&&r.data.session&&r.data.session.access_token;if(!token)throw new Error('Sign in again before uploading');return window.AevyVideoAPI.createStreamUpload(file,token)}).then(function(up){
+    btn.textContent='Uploading 0%';if(status)status.textContent='Uploading to Cloudflare Stream: 0%';
+    return window.AevyVideoAPI.uploadStreamFile(file,up.uploadURL,function(p){btn.textContent='Uploading '+p+'%';if(status)status.textContent='Uploading to Cloudflare Stream: '+p+'%'}).then(function(){uploadedStream={file:file,videoURL:up.videoURL,uid:up.uid};$('#fVideo').value=up.videoURL;if(status)status.textContent='Upload complete. Publishing video…';return publish(up.videoURL)});
+  }).catch(function(err){btn.disabled=false;btn.textContent='Publish video';if(status)status.textContent=err.message||'Video upload failed';fail(err)});
 });
 
 /* ---------- One-time import of the old browser-only data ---------- */
