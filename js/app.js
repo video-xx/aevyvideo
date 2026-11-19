@@ -74,20 +74,18 @@ function uniqueNames(list){
 }
 
 /* ---------- Data ---------- */
-var scripts=[],videos=[],backendOffline=false;
-function loadAll(){
-  return Promise.all([DB.listScripts(),DB.listVideos()]).then(function(r){scripts=r[0];videos=r[1]});
-}
+var scripts=[],backendOffline=false;
+function loadAll(){return DB.listScripts().then(function(r){scripts=r})}
 function upsertLocal(n){var i=-1;scripts.forEach(function(x,k){if(x.id===n.id)i=k});if(i<0)scripts.unshift(n);else scripts[i]=n}
 function fail(e){toast((e&&e.message)||'Something went wrong');console.error(e)}
-var CATS=['Vehicles & Tuning','Visual & Graphics','Gameplay & Physics','Tools & Utilities','Maps & Environment','Other'];
+var CATS=['Automation','Web Development','Developer Tools','Data & APIs','System Utilities','Other'];
 function me(){return window.AevyAuth.current()}
 function isOwner(s){var m=me();return !!(m&&s&&s.owner===m.id)}
 function canSee(s){return !!s&&(s.vis!=='private'||isOwner(s))}
-function vis(){return scripts.filter(canSee)}
-function mine(){return scripts.filter(isOwner)}
+function vis(){return scripts.filter(function(s){return canSee(s)&&!s.video})}
+function mine(){return scripts.filter(function(s){return isOwner(s)&&!s.video})}
 function needOwner(s){if(isOwner(s))return true;toast('Only the publisher can do that');return false}
-function byId(id){var s=scripts.filter(function(x){return x.id===id})[0];return canSee(s)?s:undefined}
+function byId(id){var s=scripts.filter(function(x){return x.id===id})[0];return canSee(s)&&!s.video?s:undefined}
 function ownerOf(s){var u=window.AevyAuth.byId(s.owner);return u?u.username:''}
 
 /* ---------- Toast ---------- */
@@ -167,10 +165,11 @@ function setTheme(t){
 $('#theme').addEventListener('click',function(){setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark')});
 
 /* ---------- Router ---------- */
-var VIEWS=['home','explore','watch','publish','files','auth','profile','u','messages','activity','ai','about','privacy','terms','guidelines','contact'],current='';
+var VIEWS=['home','scripts','explore','publish','files','auth','profile','u','messages','activity','ai','about','privacy','terms','guidelines','contact'],current='';
 function route(){
   var h=(location.hash||'#/').replace(/^#\/?/,'').split('/')[0]||'home';
-  if(h==='library'||h==='scripts')h='explore';
+  if(h==='library')h='files';
+  if(h==='explore')h='scripts';
   if(VIEWS.indexOf(h)<0)h='home';
   var raw=(location.hash||'#/').replace(/^#\/?/,'');
   var PUB=['auth','about','privacy','terms','guidelines','contact'];
@@ -184,19 +183,18 @@ function route(){
   $$('#nav a').forEach(function(a){if(a.dataset.route===h||(h==='u'&&a.dataset.route==='profile'&&false))a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
   $$('#tabbar a').forEach(function(a){if(a.dataset.route===h)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
   closeMenu();window.scrollTo(0,0);
-  document.title=h==='home'?'Aevy | Videos':'Aevy | '+({explore:'Videos',watch:'Watch',auth:'Account',profile:'Profile',u:'Profile',messages:'Messages',activity:'Activity',ai:'AI chat',about:'About',privacy:'Privacy Policy',terms:'Terms of Service',guidelines:'Community Guidelines',contact:'Contact'})[h];
+  document.title=h==='home'?'Aevy | Developer workspace':'Aevy | '+({scripts:'Script library',explore:'Script library',publish:'Publish a script',files:'My workspace',auth:'Account',profile:'Profile',u:'Profile',messages:'Messages',activity:'Activity',ai:'AI assistant',about:'About',privacy:'Privacy Policy',terms:'Terms of Service',guidelines:'Community Guidelines',contact:'Contact'})[h];
   if(h==='home'){renderHome();observeReveals();runStats()}
   if(h==='scripts')renderScripts();
   if(h==='files')renderFiles();
   if(h==='publish')updatePreview();
-  if(h==='watch')renderVList();
   if(window.AevyEco)AevyEco.render(h,raw);
   if(window.AevySocial)AevySocial.render(h,raw);
   if(window.AevyStats)AevyStats.render(h);
   if(window.AevyPhotos)AevyPhotos.render(h,raw);
 }
 window.addEventListener('hashchange',route);
-window.addEventListener('aevy:auth',function(){loadAll().catch(function(){scripts=scripts.filter(canSee);videos=[]}).then(function(){current='';route()})});
+window.addEventListener('aevy:auth',function(){loadAll().catch(function(){scripts=scripts.filter(canSee)}).then(function(){current='';route()})});
 function closeMenu(){$('#nav').classList.remove('open');$('#burger').setAttribute('aria-expanded','false')}
 $('#burger').addEventListener('click',function(){var o=$('#nav').classList.toggle('open');this.setAttribute('aria-expanded',o)});
 document.addEventListener('click',function(e){if(!e.target.closest('.site-header'))closeMenu()});
@@ -206,7 +204,7 @@ var io=('IntersectionObserver' in window)?new IntersectionObserver(function(es){
 function observeReveals(){$$('.reveal:not(.in)').forEach(function(el){io?io.observe(el):el.classList.add('in')})}
 function runStats(){
   var langs={},lines=0;vis().forEach(function(s){langs[s.lang]=1;lines+=s.lines||0});
-  var vals={scripts:vis().length,langs:Object.keys(langs).length,lines:lines,videos:videos.length};
+  var vals={scripts:vis().length,langs:Object.keys(langs).length,lines:lines};
   $$('[data-count]').forEach(function(el){
     var to=vals[el.dataset.count]||0;
     if(reduce){el.textContent=to.toLocaleString();return}
@@ -273,7 +271,7 @@ function tileHTML(s){
    '<span><svg viewBox="0 0 24 24"><path d="M12 4v11m0 0 4.5-4.5M12 15l-4.5-4.5M5 20h14"/></svg>'+(s.downloads||0)+'</span></div></div>';
 }
 function shareScript(s){
-  var url=location.origin+location.pathname+(s.video?'#/':'#/scripts'),data={title:s.title,text:s.title+' on Aevy',url:url};
+  var url=location.origin+location.pathname+'#/scripts',data={title:s.title,text:s.title+' on Aevy',url:url};
   if(navigator.share){navigator.share(data).catch(function(){})}else copyText(url);
 }
 document.addEventListener('click',function(e){
@@ -309,9 +307,9 @@ function refreshLists(){
 
 /* ---------- Home ---------- */
 function renderHome(){
-  if(window.AevyHome){try{AevyHome.render();return}catch(e){console.error('Video feed failed to render:',e)}}
+  if(window.AevyHome){try{AevyHome.render();return}catch(e){console.error('Developer workspace failed to render:',e)}}
   var root=$('#homeRoot');
-  if(root)root.innerHTML='<div class="empty boot-error"><h2>Video feed could not start</h2><p>Check that the project files loaded and that the site is served over HTTP(S), then reload.</p><button class="btn" type="button" onclick="location.reload()">Reload</button></div>';
+  if(root)root.innerHTML='<div class="empty boot-error"><h2>Workspace could not start</h2><p>Check that the project files loaded and that the site is served over HTTP(S), then reload.</p><button class="btn" type="button" onclick="location.reload()">Reload</button></div>';
 }
 
 
@@ -424,26 +422,21 @@ $('#backupBtn').addEventListener('click',function(){
   withCodes(list).then(function(codes){
     var out=list.map(function(s,i){var o=JSON.parse(JSON.stringify(s));o.code=codes[i];delete o.path;delete o.preview;return o});
     var d=new Date().toISOString().slice(0,10);
-    download('aevy-backup-'+d+'.json',JSON.stringify({app:'aevy',version:3,scripts:out,videos:videos.map(function(v){return {url:v.url,title:v.title}})},null,2),'application/json');
+    download('aevy-backup-'+d+'.json',JSON.stringify({app:'aevy',version:4,scripts:out},null,2),'application/json');
     toast('Backup downloaded');
   }).catch(fail);
 });
 $('#restoreBtn').addEventListener('click',function(){$('#restoreInput').click()});
-function restoreScripts(arr,vids){
+function restoreScripts(arr){
   var n=0;
   return arr.reduce(function(p,s){
     return p.then(function(){
       if(!s||typeof s.title!=='string'||typeof s.code!=='string')return;
-      return DB.createScript({title:s.title.slice(0,80),lang:LANGS[s.lang]?s.lang:'text',ext:s.ext,author:me().name,desc:String(s.desc||'').slice(0,220),tags:Array.isArray(s.tags)?s.tags.slice(0,8).map(String):[],cat:CATS.indexOf(s.cat)>-1?s.cat:'Other',vis:s.vis==='private'?'private':'public',video:String(s.video||'').slice(0,300)},s.code).then(function(c){upsertLocal(c);n++},function(e){console.error(e)});
+      return DB.createScript({title:s.title.slice(0,80),lang:LANGS[s.lang]?s.lang:'text',ext:s.ext,author:me().name,desc:String(s.desc||'').slice(0,220),tags:Array.isArray(s.tags)?s.tags.slice(0,8).map(String):[],cat:CATS.indexOf(s.cat)>-1?s.cat:'Other',vis:s.vis==='private'?'private':'public',video:''},s.code).then(function(c){upsertLocal(c);n++},function(e){console.error(e)});
     });
   },Promise.resolve()).then(function(){
-    return (vids||[]).reduce(function(p,v){
-      return p.then(function(){
-        if(!v||!v.url||videos.some(function(x){return x.url===v.url}))return;
-        return DB.addVideo(String(v.url).slice(0,500),String(v.title||'').slice(0,90)).then(function(x){videos.unshift(x)},function(){});
-      });
-    },Promise.resolve());
-  }).then(function(){return n});
+    return n;
+  });
 }
 $('#restoreInput').addEventListener('change',function(){
   var f=this.files[0];this.value='';if(!f)return;
@@ -451,7 +444,7 @@ $('#restoreInput').addEventListener('change',function(){
     var data=JSON.parse(txt),arr=Array.isArray(data)?data:data.scripts;
     if(!Array.isArray(arr))throw 0;
     toast('Restoring '+arr.length+' script(s)...');
-    return restoreScripts(arr,data.videos);
+    return restoreScripts(arr);
   }).then(function(n){refreshLists();toast(n+' script'+(n===1?'':'s')+' restored')},function(){toast('That file is not a valid Aevy backup')});
 });
 
@@ -492,8 +485,7 @@ function renderScriptBody(s,code,edit){
       '<div><label class="l" for="eTags">Tags</label><input class="field" id="eTags" value="'+esc((s.tags||[]).join(', '))+'"></div></div>'+
       '<div class="row2"><div><label class="l" for="eCat">Category</label><select class="field sel" id="eCat" style="width:100%">'+catOptions(s.cat)+'</select></div><div><label class="l" for="eVis">Visibility</label><select class="field sel" id="eVis" style="width:100%"><option value="public"'+(s.vis!=='private'?' selected':'')+'>Public</option><option value="private"'+(s.vis==='private'?' selected':'')+'>Private (only you)</option></select></div></div>'+
       '<div><label class="l" for="eDesc">Description</label><input class="field" id="eDesc" maxlength="220" value="'+esc(s.desc||'')+'"></div>'+
-      '<div><label class="l" for="eVideo">Video link</label><input class="field" id="eVideo" inputmode="url" value="'+esc(s.video||'')+'" placeholder="YouTube or video URL"></div>'+
-      (s.video?'<div class="notice">Video posts store the video URL and description. The video itself streams from its linked provider.</div>':(BIN.isBin(code)?'<div class="notice">Binary or encrypted file ('+fmtSize(s.size||0)+'): the content stays as uploaded. You can still edit the details above.</div>':'<div><label class="l" for="eCode">Code</label><textarea class="field" id="eCode" spellcheck="false" style="min-height:340px">'+esc(code)+'</textarea></div>'))+
+      (BIN.isBin(code)?'<div class="notice">Binary or encrypted file ('+fmtSize(s.size||0)+'): the content stays as uploaded. You can still edit the details above.</div>':'<div><label class="l" for="eCode">Source code</label><textarea class="field" id="eCode" spellcheck="false" style="min-height:340px">'+esc(code)+'</textarea></div>')+
       '<div class="actions"><button class="btn btn-primary" type="submit">Save changes</button><button class="btn" type="button" id="eCancel">Cancel</button></div></form>';
     $('#eCancel').onclick=function(){openScript(id)};
     if($('#eCode'))$('#eCode').addEventListener('keydown',tabKey);
@@ -501,18 +493,16 @@ function renderScriptBody(s,code,edit){
       ev.preventDefault();
       if(!needOwner(s))return;
       var btn=this.querySelector('[type=submit]'),newCode=$('#eCode')?$('#eCode').value:code;btn.disabled=true;btn.textContent='Saving...';
-      var f={title:$('#eTitle').value.trim()||s.title,lang:$('#eLang').value,tags:splitTags($('#eTags').value),cat:$('#eCat').value,vis:$('#eVis').value,desc:$('#eDesc').value.trim(),video:$('#eVideo').value.trim(),author:s.author};
+      var f={title:$('#eTitle').value.trim()||s.title,lang:$('#eLang').value,tags:splitTags($('#eTags').value),cat:$('#eCat').value,vis:$('#eVis').value,desc:$('#eDesc').value.trim(),video:'',author:s.author};
       DB.updateScript(s,f,newCode!==code?newCode:undefined).then(function(n){upsertLocal(n);toast('Changes saved');openScript(id);refreshLists()},function(e){btn.disabled=false;btn.textContent='Save changes';fail(e)});
     };
   }else{
-    var v=parseVideo(s.video);
     body.innerHTML=
-      '<div class="dlg-bar">'+(s.video?'':('<button class="btn btn-primary btn-lg" data-a="download">'+ICON.dl+'Download '+esc(fileNameOf(s))+'</button>'))+
-        (isOwner(s)?'<button class="btn btn-lg" data-a="edit">'+(s.video?'Edit video':'Edit')+'</button>':'')+(s.video?'<button class="btn btn-lg" data-a="share">Share</button>':'<button class="btn btn-lg" data-a="copy">Copy</button><button class="btn btn-lg" data-a="fork">Fork</button>')+((isOwner(s)||(window.AevyAuth.isAdmin&&AevyAuth.isAdmin()))?'<button class="btn btn-lg btn-danger" data-a="delete">Delete</button>':'<button class="btn btn-lg" data-a="report">Report</button>')+'</div>'+
+      '<div class="dlg-bar"><button class="btn btn-primary btn-lg" data-a="download">'+ICON.dl+'Download '+esc(fileNameOf(s))+'</button>'+
+        (isOwner(s)?'<button class="btn btn-lg" data-a="edit">Edit script</button>':'')+'<button class="btn btn-lg" data-a="copy">Copy code</button><button class="btn btn-lg" data-a="fork">Fork</button>'+((isOwner(s)||(window.AevyAuth.isAdmin&&AevyAuth.isAdmin()))?'<button class="btn btn-lg btn-danger" data-a="delete">Delete</button>':'<button class="btn btn-lg" data-a="report">Report</button>')+'</div>'+
       (s.desc?'<p class="desc">'+esc(s.desc)+'</p>':'')+
       ((s.tags&&s.tags.length)?'<div class="tags">'+s.tags.map(function(t){return '<span class="tag">'+esc(t)+'</span>'}).join('')+'</div>':'')+
-      (v?'<div>'+playerHTML(v)+'</div>':'')+
-      (s.video?'':(BIN.isBin(code)?'<div class="notice">Binary or encrypted file ('+fmtSize(s.size||0)+'). It cannot be shown as text. Use Download to get the original file.</div>':codeHTML(code,s.lang)))+
+      (BIN.isBin(code)?'<div class="notice">Binary or encrypted file ('+fmtSize(s.size||0)+'). It cannot be shown as text. Use Download to get the original file.</div>':codeHTML(code,s.lang))+
       '<div id="social"></div>';
     if(window.AevyStats)AevyStats.mount(s);
   }
@@ -527,93 +517,19 @@ $('#dlgBody').addEventListener('click',function(e){
   if(a==='fork'){
     if(!me()){toast('Sign in to fork');location.hash='#/auth';return}
     b.disabled=true;
-    DB.createScript({title:(s.title+' (copy)').slice(0,80),lang:s.lang,author:me().name,desc:s.desc,tags:s.tags,cat:s.cat,vis:'private',video:s.video},openCode).then(function(c){upsertLocal(c);toast('Forked as a private script');openScript(c.id);refreshLists()},function(x){b.disabled=false;fail(x)});
+    DB.createScript({title:(s.title+' (copy)').slice(0,80),lang:s.lang,author:me().name,desc:s.desc,tags:s.tags,cat:s.cat,vis:'private',video:''},openCode).then(function(c){upsertLocal(c);toast('Forked as a private script');openScript(c.id);refreshLists()},function(x){b.disabled=false;fail(x)});
   }
   if(a==='delete')deleteScript(s,function(){dlg.close()});
   if(a==='report'&&window.AevyReport)AevyReport.open('script',s.id,s.title);
 });
 dlg.addEventListener('click',function(e){if(e.target===dlg||e.target.closest('[data-close]'))dlg.close()});
 $('#dlgClose').addEventListener('click',function(){dlg.close()});
-dlg.addEventListener('close',function(){document.body.classList.remove('lock');openId=null;stopMedia(dlg)});
-function stopMedia(root){$$('video',root).forEach(function(v){v.pause()});$$('iframe',root).forEach(function(f){f.src='about:blank'})}
-
-/* ---------- Video ---------- */
-function parseVideo(u){
-  u=(u||'').trim();if(!u)return null;
-  var url;try{url=new URL(/^https?:\/\//i.test(u)?u:'https://'+u)}catch(e){return null}
-  var h=url.hostname.replace(/^(www|m)\./,''),id=null,list=url.searchParams.get('list');
-  if(h==='youtu.be')id=url.pathname.slice(1).split('/')[0];
-  else if(h==='youtube.com'||h==='music.youtube.com'||h==='youtube-nocookie.com'){
-    if(url.pathname==='/watch')id=url.searchParams.get('v');
-    else{var m=url.pathname.match(/^\/(embed|shorts|live|v)\/([\w-]{6,})/);if(m)id=m[2]}
-    if(!id&&list&&(url.pathname==='/playlist'||url.pathname==='/embed/videoseries'))
-      return {type:'yt',embed:'https://www.youtube-nocookie.com/embed/videoseries?list='+encodeURIComponent(list),watch:'https://www.youtube.com/playlist?list='+encodeURIComponent(list),label:'YouTube playlist'};
-  }
-  if(id&&/^[\w-]{6,}$/.test(id)){
-    var t=url.searchParams.get('t')||url.searchParams.get('start')||'',start=0,mm;
-    if(/^\d+$/.test(t))start=+t;else if(t&&(mm=t.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/)))start=(+mm[1]||0)*3600+(+mm[2]||0)*60+(+mm[3]||0);
-    return {type:'yt',id:id,thumb:'https://i.ytimg.com/vi/'+id+'/mqdefault.jpg',watch:'https://www.youtube.com/watch?v='+id+(start?'&t='+start+'s':''),
-      embed:'https://www.youtube-nocookie.com/embed/'+id+'?rel=0&modestbranding=1&playsinline=1'+(start?'&start='+start:'')+(list?'&list='+encodeURIComponent(list):''),label:'YouTube'};
-  }
-  if(h==='vimeo.com'||h==='player.vimeo.com'){
-    var vm=url.pathname.match(/(\d{5,})/);
-    if(vm)return {type:'vimeo',embed:'https://player.vimeo.com/video/'+vm[1],watch:'https://vimeo.com/'+vm[1],label:'Vimeo'};
-  }
-  if(h==='iframe.videodelivery.net'||h==='videodelivery.net'||/\.cloudflarestream\.com$/.test(h)){
-    var sm=url.pathname.match(/\/([\w-]{20,})(?:\/iframe)?\/?$/);
-    if(sm){var sid=sm[1];return {type:'stream',id:sid,thumb:'https://videodelivery.net/'+sid+'/thumbnails/thumbnail.jpg',embed:'https://iframe.videodelivery.net/'+sid,watch:'https://iframe.videodelivery.net/'+sid,label:'Cloudflare Stream'};}
-  }
-  if(/\.(mp4|webm|ogv|mov|m4v)$/i.test(url.pathname))return {type:'file',src:url.href,watch:url.href,label:'Video file'};
-  return null;
-}
-function playerFrame(v){
-  if(v.type==='file'||v.type==='local')return '<div class="vframe"><video controls playsinline preload="metadata" src="'+esc(v.src)+'"></video></div>';
-  return '<div class="vframe"><iframe src="'+esc(v.embed)+'" title="Video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" loading="lazy"></iframe></div>';
-}
-function playerNote(v){return esc(v.label)+'. If the player shows an error, <a href="'+esc(v.watch)+'" target="_blank" rel="noopener noreferrer">open it at the source</a>.'}
-function playerHTML(v){return playerFrame(v)+'<p class="vnote">'+playerNote(v)+'</p>'}
-var localObjUrl=null;
-function playInStage(v,note){
-  if(localObjUrl&&v.type!=='local'){URL.revokeObjectURL(localObjUrl);localObjUrl=null}
-  $('#stage').innerHTML=playerFrame(v);
-  $('#stageNote').innerHTML=v.type==='local'?esc(note):playerNote(v);
-}
-function addVideo(save){
-  var url=$('#vUrl').value.trim(),v=parseVideo(url);
-  if(!v){toast('That does not look like a supported video link');return}
-  playInStage(v);
-  if(save){
-    if(!me()){toast('Sign in to save videos');return}
-    if(videos.some(function(x){return x.url===url})){toast('Already in your list');return}
-    DB.addVideo(url.slice(0,500),$('#vTitle').value.trim()).then(function(v){videos.unshift(v);toast('Saved to your list');renderVList()},fail);
-  }
-}
-$('#vidForm').addEventListener('submit',function(e){e.preventDefault();addVideo(false)});
-$('#vSave').addEventListener('click',function(){if(!$('#vidForm').reportValidity())return;addVideo(true)});
-$('#vLocal').addEventListener('click',function(){$('#vFile').click()});
-$('#vFile').addEventListener('change',function(){
-  var f=this.files[0];this.value='';if(!f)return;
-  if(localObjUrl)URL.revokeObjectURL(localObjUrl);
-  localObjUrl=URL.createObjectURL(f);
-  playInStage({type:'local',src:localObjUrl},'Playing '+f.name+' from your computer. Local files are not saved to the list.');
-});
-function renderVList(){
-  var el=$('#vlist');
-  if(!videos.length){el.innerHTML='<p class="note">'+(me()?'Your saved videos will appear here.':'Sign in to keep a saved video list.')+'</p>';return}
-  el.innerHTML=videos.map(function(x){
-    var v=parseVideo(x.url),th=v&&v.thumb?'style="background-image:url('+esc(v.thumb)+')"':'';
-    return '<div class="vitem"><button class="vplay" data-play="'+esc(x.id)+'" aria-label="Play '+esc(x.title||x.url)+'"><div class="th" '+th+'>'+(v&&v.thumb?'':esc(v?v.type:'link'))+'</div><div style="min-width:0"><b>'+esc(x.title||x.url)+'</b><small>'+esc(v?v.label:'Unsupported')+'</small></div></button><button class="x" data-del="'+esc(x.id)+'" aria-label="Remove from list">'+ICON.x+'</button></div>';
-  }).join('');
-}
-$('#vlist').addEventListener('click',function(e){
-  var p=e.target.closest('[data-play]'),d=e.target.closest('[data-del]');
-  if(p){var x=videos.filter(function(i){return i.id===p.dataset.play})[0];var v=x&&parseVideo(x.url);if(v){playInStage(v);window.scrollTo({top:0,behavior:reduce?'auto':'smooth'})}}
-  if(d){DB.removeVideo(d.dataset.del).then(function(){videos=videos.filter(function(i){return i.id!==d.dataset.del});renderVList()},fail)}
-});
+dlg.addEventListener('close',function(){document.body.classList.remove('lock');openId=null});
 
 /* ---------- Publish ---------- */
 $('#fLang').innerHTML=langOptions('javascript');
-var pubExt='',uploadedStream=null;
+$('#fCat').innerHTML=catOptions('Other');
+var pubExt='';
 function pubFileName(){return slug($('#fTitle').value.trim()||'untitled')+'.'+(pubExt||langExt($('#fLang').value))}
 function updatePreview(){
   var lang=$('#fLang').value,code=$('#fCode').value;
@@ -647,54 +563,34 @@ $('#pubFile').addEventListener('change',function(){loadFile(this.files[0]);this.
 ['dragenter','dragover'].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add('over')})});
 ['dragleave','drop'].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove('over')})});
 drop.addEventListener('drop',function(e){loadFile(e.dataTransfer.files[0])});
-$('#streamVideoFile').addEventListener('change',function(){uploadedStream=null;if(this.files[0]){$('#fVideo').value='';$('#streamUploadStatus').textContent='Ready to upload '+this.files[0].name+' ('+fmtSize(this.files[0].size)+').'}else $('#streamUploadStatus').textContent='Uploads securely to Cloudflare Stream.'});
-$('#fVideo').addEventListener('input',function(){if(this.value.trim()){uploadedStream=null;$('#streamVideoFile').value='';$('#streamUploadStatus').textContent='Using the video link you entered.'}});
-$('#pubClear').addEventListener('click',function(){$('#pubForm').reset();pubExt='';uploadedStream=null;$('#streamUploadStatus').textContent='Uploads securely to Cloudflare Stream.';updatePreview()});
+$('#pubClear').addEventListener('click',function(){$('#pubForm').reset();pubExt='';updatePreview()});
 $('#pubForm').addEventListener('submit',function(e){
   e.preventDefault();
-  var title=$('#fTitle').value.trim(),code='',m=me(),file=$('#streamVideoFile').files[0],btn=$('#pubForm [type=submit]'),status=$('#streamUploadStatus'),vid=$('#fVideo').value.trim();
-  if(!title){toast('Add a video title');return}
+  var title=$('#fTitle').value.trim(),code=$('#fCode').value,m=me(),btn=$('#pubForm [type=submit]');
+  if(!title){toast('Add a script name');return}
+  if(!code.trim()){toast('Add source code or import a file');return}
   if(!m){toast('Sign in to publish');location.hash='#/auth';return}
-  function publish(videoUrl){
-    if(!videoUrl||!parseVideo(videoUrl))throw new Error('Add a supported YouTube, Vimeo, Cloudflare Stream, or direct video URL');
-    code='AEVY VIDEO LINK\n'+videoUrl;$('#fLang').value='text';$('#fCode').value=code;btn.textContent='Publishing…';
-    return DB.createScript({cat:'Other',vis:'public',title:title,lang:'text',author:m.name,desc:$('#fDesc').value.trim(),tags:splitTags($('#fTags').value),video:videoUrl,ext:'txt'},code).then(function(s){
-      upsertLocal(s);uploadedStream=null;btn.disabled=false;btn.textContent='Publish video';$('#pubForm').reset();pubExt='';if(status)status.textContent='Uploads securely to Cloudflare Stream.';updatePreview();toast('Video published');location.hash='#/';
-    });
-  }
-  if(!file){
-    if(!vid||!parseVideo(vid)){toast('Add a supported video URL or choose a video file');return}
-    btn.disabled=true;publish(vid).catch(function(err){btn.disabled=false;btn.textContent='Publish video';fail(err)});
-    return;
-  }
-  if(file.size>=200*1000*1000){toast('Choose a video under 200 MB. Larger files need resumable uploads.');return}
-  if(uploadedStream&&uploadedStream.file===file){try{btn.disabled=true;publish(uploadedStream.videoURL).catch(function(err){btn.disabled=false;btn.textContent='Publish video';fail(err)})}catch(err){toast(err.message)}return}
-  if(!window.AevySB||!window.AevySB.client||!window.AevyVideoAPI){toast('Upload service is not ready. Reload the page and try again.');return}
-  btn.disabled=true;btn.textContent='Preparing upload…';if(status)status.textContent='Getting a secure one-time upload link…';
-  window.AevySB.client.auth.getSession().then(function(r){if(r.error)throw r.error;var token=r.data&&r.data.session&&r.data.session.access_token;if(!token)throw new Error('Sign in again before uploading');return window.AevyVideoAPI.createStreamUpload(file,token)}).then(function(up){
-    btn.textContent='Uploading 0%';if(status)status.textContent='Uploading to Cloudflare Stream: 0%';
-    return window.AevyVideoAPI.uploadStreamFile(file,up.uploadURL,function(p){btn.textContent='Uploading '+p+'%';if(status)status.textContent='Uploading to Cloudflare Stream: '+p+'%'}).then(function(){uploadedStream={file:file,videoURL:up.videoURL,uid:up.uid};$('#fVideo').value=up.videoURL;if(status)status.textContent='Upload complete. Publishing video…';return publish(up.videoURL)});
-  }).catch(function(err){btn.disabled=false;btn.textContent='Publish video';if(status)status.textContent=err.message||'Video upload failed';fail(err)});
-});
-
-/* ---------- One-time import of the old browser-only data ---------- */
-var OLD={scripts:'aevy.scripts.v1',videos:'aevy.videos.v1',users:'aevy.users.v1',session:'aevy.session',author:'aevy.author'};
+  btn.disabled=true;btn.textContent='Publishing…';
+  DB.createScript({cat:$('#fCat').value||'Other',vis:$('#fVis').value||'public',title:title,lang:$('#fLang').value,author:$('#fAuthor').value.trim()||m.name,desc:$('#fDesc').value.trim(),tags:splitTags($('#fTags').value),video:'',ext:pubExt},code).then(function(s){
+    upsertLocal(s);btn.disabled=false;btn.textContent='Publish script';$('#pubForm').reset();pubExt='';updatePreview();toast('Script published');location.hash='#/scripts';
+  },function(err){btn.disabled=false;btn.textContent='Publish script';fail(err)});
+});/* ---------- One-time import of the old browser-only data ---------- */
+var OLD={scripts:'aevy.scripts.v1',users:'aevy.users.v1',session:'aevy.session',author:'aevy.author'};
 function oldScripts(){
   try{var a=JSON.parse(localStorage.getItem(OLD.scripts))||[];return a.filter(function(x){return x&&x.owner!=='sys'&&typeof x.code==='string'&&typeof x.title==='string'})}catch(e){return []}
 }
-function oldVideos(){try{return JSON.parse(localStorage.getItem(OLD.videos))||[]}catch(e){return []}}
 function importLocal(){
-  var list=oldScripts().map(function(x){return {title:x.title,lang:x.lang,desc:x.desc,tags:x.tags,cat:x.cat,vis:x.vis,video:x.video,code:x.code}});
-  return restoreScripts(list,oldVideos()).then(function(n){
-    if(n===list.length){[OLD.scripts,OLD.videos,OLD.users,OLD.session,OLD.author].forEach(function(k){try{localStorage.removeItem(k)}catch(e){}})}
+  var list=oldScripts().map(function(x){return {title:x.title,lang:x.lang,desc:x.desc,tags:x.tags,cat:x.cat,vis:x.vis,video:'',code:x.code}});
+  return restoreScripts(list).then(function(n){
+    if(n===list.length){[OLD.scripts,OLD.users,OLD.session,OLD.author].forEach(function(k){try{localStorage.removeItem(k)}catch(e){}})}
     return n;
   });
 }
 
-window.AevyCore={tileHTML:tileHTML,all:function(){return scripts},vis:vis,mine:mine,cats:CATS,cardHTML:cardHTML,toast:toast,esc:esc,fmtDate:fmtDate,
+window.AevyCore={tileHTML:tileHTML,all:function(){return scripts.filter(function(s){return !s.video})},vis:vis,mine:mine,cats:CATS,cardHTML:cardHTML,toast:toast,esc:esc,fmtDate:fmtDate,
   localCount:function(){return oldScripts().length},importLocal:importLocal,
   purgeFiles:function(){return DB.purgeMyFiles()},
-  dropOwner:function(id){scripts=scripts.filter(function(s){return s.owner!==id});videos=[]},
+  dropOwner:function(id){scripts=scripts.filter(function(s){return s.owner!==id})},
   refresh:function(){current='';route()},
   /* live updates pushed by AevyStats (realtime) */
   upsert:function(s){upsertLocal(s);refreshLists()},
@@ -707,8 +603,8 @@ document.addEventListener('DOMContentLoaded',function(){
   if(!window.AevyAuth||!DB){boot.textContent='Could not start: the Supabase library failed to load.';return}
   var rendered=false,timer=setTimeout(function(){
     if(rendered)return;
-    rendered=true;backendOffline=true;scripts=[];videos=[];go();
-    toast('The video page loaded, but the server is taking too long. Check your connection and Supabase settings.');
+    rendered=true;backendOffline=true;scripts=[];go();
+    toast('The workspace loaded, but the server is taking too long. Check your connection and Supabase settings.');
   },4000);
   window.AevyAuth.ready.then(loadAll).then(function(){
     backendOffline=false;
@@ -718,7 +614,7 @@ document.addEventListener('DOMContentLoaded',function(){
     console.error(e);
     var m=(e&&e.message)||'';
     var hint=/permission|insufficient|not-found|does not exist|schema cache|relation/i.test(m)?'Run supabase/schema.sql in the Supabase SQL editor.':'Check your connection and js/config.js.';
-    if(!rendered){rendered=true;clearTimeout(timer);backendOffline=true;scripts=[];videos=[];go()}
+    if(!rendered){rendered=true;clearTimeout(timer);backendOffline=true;scripts=[];go()}
     toast('Could not reach the backend. '+hint);
   });
 });

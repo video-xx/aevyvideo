@@ -27,7 +27,7 @@ var EYE='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="cur
 function pw(id,label,ac,extra){return '<div><label class="l" for="'+id+'">'+label+'</label><div class="pwrap"><input class="field" id="'+id+'" type="password" autocomplete="'+ac+'" required '+(extra||'')+'><button type="button" class="eye" data-eye="'+id+'" aria-label="Show password">'+EYE+'</button></div></div>'}
 function idf(id,hint){return '<input class="field" id="'+id+'" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" required placeholder="you@example.com">'}
 mk('auth','<div class="auth-shell"><aside class="auth-side"><span></span>'+
- '<div><p class="eyebrow">CPM script ecosystem</p><h1 id="aTitle">Welcome back.</h1><p class="auth-lead" id="aLead">Sign in to publish scripts, manage your files and keep your private work private.</p></div>'+
+ '<div><p class="eyebrow">Aevy developer workspace</p><h1 id="aTitle">Welcome back.</h1><p class="auth-lead" id="aLead">Sign in to publish scripts, manage your files and keep your private work private.</p></div>'+
  '<ul class="auth-points"><li><b>Own your uploads</b><span>Only you can edit or delete what you publish.</span></li><li><b>Public or private</b><span>Choose who can see each script.</span></li><li><b>Free, no ads</b><span>No card, no spam, no selling your data. Your email stays private.</span></li><li><b>Secure by design</b><span>Passwords are encrypted and never visible to us.</span></li></ul></aside>'+
  '<div class="auth-main"><div class="auth-card">'+
  '<div id="stChoose" hidden><h2>Pick your username</h2><p class="sub2" id="stSub">One last step. Your username is your public handle.</p>'+
@@ -51,7 +51,7 @@ function setMode(m){
   au.querySelectorAll("[data-mode]").forEach(function(x){var on=x.dataset.mode===m;x.classList.toggle('on',on);x.setAttribute('aria-selected',on)});
   $('#fIn').hidden=m!=='in';$('#fUp').hidden=m!=='up';au.querySelector('.seg').hidden=false;
   $('#aTitle').textContent=m==='in'?'Welcome back.':'Create your account.';
-  $('#aLead').textContent=m==='in'?'Sign in to publish scripts, manage your files and keep your private work private.':'Join Aevy to publish, version and share your CPM scripts in under a minute.';
+  $('#aLead').textContent=m==='in'?'Sign in to publish scripts, manage your files and keep your private work private.':'Join Aevy to publish, organize and share your scripts with developers.';
   ['#inErr','#upErr'].forEach(function(q){au.querySelector(q).textContent=''});
 }
 function renderAuth(){

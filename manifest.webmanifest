@@ -1,7 +1,7 @@
 {
-  "name": "Aevy - Video Community",
+  "name": "Aevy Developer Workspace",
   "short_name": "Aevy",
-  "description": "Discover and share videos with creators.",
+  "description": "Discover and share scripts with developers.",
   "id": "/",
   "start_url": "./#/",
   "scope": "./",
@@ -9,14 +9,16 @@
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
-  "categories": ["social", "games", "productivity"],
+  "categories": ["developer", "productivity", "utilities"],
   "icons": [
     { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "assets/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Share a video", "url": "./#/publish" },
+    { "name": "Publish a script", "url": "./#/publish" },
+    { "name": "Explore scripts", "url": "./#/scripts" },
+    { "name": "My workspace", "url": "./#/files" },
     { "name": "Messages", "url": "./#/messages" }
   ]
 }

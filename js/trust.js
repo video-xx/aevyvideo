@@ -8,8 +8,8 @@ function page(id,eyebrow,title,lead,body){
   $('main').appendChild(s);
 }
 var UP='Last updated: November 2026';
-page('about','About Aevy','A home for CPM scripts, built in the open.','Aevy is where creators publish, share and discover CPM scripts, with real accounts and real ownership.',
-'<h2>What Aevy is</h2><p>Aevy is a free community platform for CPM scripts. You create an account, publish scripts, follow other creators, chat, and keep private work private.</p>'+
+page('about','About Aevy','A home for useful code, built in the open.','Aevy is where developers publish, share and discover reusable scripts, with real accounts and ownership controls.',
+'<h2>What Aevy is</h2><p>Aevy is a developer workspace for scripts and source files. Create an account, publish reusable code, follow creators, collaborate through community features, and keep private work private.</p>'+
 '<h2>What we stand for</h2><ul><li><b>You own your work.</b> Only you can edit or delete what you publish.</li><li><b>No ads, no tracking.</b> We do not sell your data and we do not run ad trackers.</li><li><b>Your email stays private.</b> It is never shown on your profile or to other users.</li><li><b>Real accounts.</b> Sign in with email and password. Passwords are hashed by our auth provider and never visible to us.</li></ul>'+
 '<h2>How it is built</h2><p>Accounts, data and files are stored with Supabase, a SOC 2 audited platform. Connections use HTTPS. Access to every table is limited by row-level security rules, so one user cannot change another user\'s content.</p>'+
 '<h2>Get in touch</h2><p>Questions, bug reports or takedown requests: see the <a href="#/contact">Contact page</a>.</p>');

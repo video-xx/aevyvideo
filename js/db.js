@@ -1,7 +1,6 @@
 /* Aevy data layer on Supabase (Postgres + Row Level Security).
    public.scripts       metadata + preview
    public.script_files  the script file itself (one row per script, max 2 MB)
-   public.videos        private saved videos
    Table definitions and security policies: supabase/schema.sql */
 (function(){
 'use strict';
@@ -114,26 +113,10 @@ window.AevyDB={
       delete codeCache[s.id];refreshBadge();
     }).then(null,function(e){throw err(e)});
   },
-  /* removes every script (with its file) and saved video of the signed-in user; used before account deletion */
+  /* removes every script and source file owned by the signed-in user */
   purgeMyFiles:function(){
     var uid;try{uid=userId()}catch(e){return Promise.reject(e)}
-    return sb.from('scripts').delete().eq('owner',uid).then(must).then(function(){
-      return sb.from('videos').delete().eq('owner',uid).then(must);
-    }).then(function(){codeCache={}}).then(null,function(e){throw err(e)});
-  },
-  listVideos:function(){
-    var m=window.AevyAuth.current();
-    if(!m)return Promise.resolve([]);
-    return sb.from('videos').select('id,url,title').eq('owner',m.id).order('created',{ascending:false}).then(must).then(function(rows){
-      return rows.map(function(v){return {id:v.id,url:v.url,title:v.title}});
-    });
-  },
-  addVideo:function(url,title){
-    var uid;try{uid=userId()}catch(e){return Promise.reject(e)}
-    return sb.from('videos').insert({owner:uid,url:url,title:title||''}).select('id,url,title').single().then(must).then(function(v){
-      return {id:v.id,url:v.url,title:v.title};
-    }).then(null,function(e){throw err(e)});
-  },
-  removeVideo:function(id){return sb.from('videos').delete().eq('id',id).then(must).then(function(){},function(e){throw err(e)})}
+    return sb.from('scripts').delete().eq('owner',uid).then(must).then(function(){codeCache={}}).then(null,function(e){throw err(e)});
+  }
 };
 })();

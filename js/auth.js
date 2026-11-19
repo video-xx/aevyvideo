@@ -244,12 +244,12 @@ var A=window.AevyAuth={
     return A.verify(oldPw,'Current password is wrong').then(function(){return sb.auth.updateUser({password:newPw}).then(must)})
       .then(function(){silent--},function(e){silent--;throw nice(e)});
   },
-  /* cleanup: function returning a promise that deletes the user's scripts/videos first */
+  /* cleanup: function returning a promise that deletes the user's scripts first */
   remove:function(pw,cleanup){
     if(!me)return Promise.reject(new Error('Sign in first'));
     silent++;
     return A.verify(pw,'Password is wrong').then(function(){return cleanup?cleanup():null}).then(function(){
-      /* security-definer function from schema.sql: deletes the auth user, which cascades to profile, scripts, files and videos */
+      /* security-definer function from schema.sql: deletes the auth user and cascades to its profile and scripts */
       return sb.rpc('delete_my_account').then(must);
     }).then(function(){return sb.auth.signOut({scope:'local'}).catch(function(){})}).then(function(){
       user=null;me=null;return loadProfiles().catch(function(){});

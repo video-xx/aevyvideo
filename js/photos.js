@@ -325,7 +325,7 @@ function openSheet(){
   sheet=document.createElement('div');sheet.className='ph-sheet';
   sheet.innerHTML='<div class="ph-sheet-b" role="dialog" aria-label="Create"><i class="ph-grab"></i><h3>Create</h3>'+
    '<button type="button" data-sh="photo"><span>'+PLUS+'</span><b>Photo post<small>Share a picture with filters</small></b></button>'+
-   '<button type="button" data-sh="script"><span><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 4.5l-3 15"/></svg></span><b>Script<small>Publish a CPM script</small></b></button>'+
+   '<button type="button" data-sh="script"><span><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 4.5l-3 15"/></svg></span><b>Script<small>Publish a source file</small></b></button>'+
    '<button type="button" class="ph-cancel" data-sh="x">Cancel</button></div>';
   document.body.appendChild(sheet);
   sheet.addEventListener('click',function(e){

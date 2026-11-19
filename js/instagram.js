@@ -20,7 +20,7 @@ nav.querySelectorAll('a').forEach(function(a){
   var badge=extra?extra.outerHTML:'';
   a.innerHTML=(ICONS[r]||'')+'<span class="nl">'+t+'</span>'+badge;
 });
-var pt=$('.pub-top');if(pt){var sp=pt.querySelector('span');if(sp)sp.textContent='Share video'}
+var pt=$('.pub-top');if(pt){var sp=pt.querySelector('span');if(sp)sp.textContent='New script'}
 /* keep Profile highlighted on the profile page */
 function mark(){var h=(location.hash||'#/').replace(/^#\/?/,'').split('/')[0]||'home';nav.querySelectorAll('a').forEach(function(a){if(a.dataset.route===h)a.setAttribute('aria-current','page')})}
 window.addEventListener('hashchange',function(){setTimeout(mark,0)});mark();
